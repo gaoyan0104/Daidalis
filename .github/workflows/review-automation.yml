@@ -50,11 +50,12 @@ jobs:
               core.notice('The PR is closed or has no file changes; skipping review.');
               return;
             }
-            // Fork events do not receive repository secrets or a writable token.
-            // A maintainer can review the same PR through workflow_dispatch.
+            // Fork and Dependabot events have restricted secret/token access.
+            // A maintainer can review these PRs through workflow_dispatch.
             if (context.eventName === 'pull_request' &&
-                pr.head.repo?.full_name.toLowerCase() !== `${owner}/${repo}`.toLowerCase()) {
-              const message = 'A maintainer can review this fork PR using Run workflow with its PR number.';
+                (context.actor === 'dependabot[bot]' ||
+                 pr.head.repo?.full_name.toLowerCase() !== `${owner}/${repo}`.toLowerCase())) {
+              const message = 'This event has restricted secret access. A maintainer can review the PR using Run workflow with its PR number.';
               core.notice(message);
               await core.summary.addHeading('Review skipped').addRaw(message).write();
               return;
