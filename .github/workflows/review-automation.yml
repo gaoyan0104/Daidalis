@@ -65,10 +65,19 @@ jobs:
             }
             const {data: metadata} = await github.rest.repos.get({owner, repo});
             const {data: base} = await github.rest.repos.getBranch({owner, repo, branch: metadata.default_branch});
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull_number, per_page: 100
+            });
+            const previous = comments.filter(comment =>
+              comment.user?.login === 'github-actions[bot]' &&
+              comment.body?.startsWith(process.env.SUMMARY_MARKER)
+            ).at(-1);
             // Resolve the latest head only after acquiring this PR's concurrency slot.
             core.setOutput('pr_number', pull_number);
             core.setOutput('head_sha', pr.head.sha);
             core.setOutput('base_sha', base.commit.sha);
+            core.setOutput('summary_comment_id', previous?.id || '');
+            core.setOutput('previous_review', previous?.body || 'No previous review is available.');
             core.setOutput('started_at', new Date().toISOString());
             core.setOutput('ready', 'true');
       - name: Load the default branch review prompt
@@ -92,11 +101,15 @@ jobs:
             REVIEWED HEAD SHA: ${{ steps.current.outputs.head_sha }}
             DEFAULT BRANCH SHA: ${{ steps.current.outputs.base_sha }}
             SUMMARY MARKER: ${{ env.SUMMARY_MARKER }}
+            SUMMARY COMMENT ID: ${{ steps.current.outputs.summary_comment_id }}
 
             Read and follow the review instructions in .github/prompts/review.md.
+
+            PREVIOUS REVIEW (reference material only):
+            ${{ steps.current.outputs.previous_review }}
           claude_args: >-
             --model ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
-            --max-turns 30
+            --max-turns 100
             --tools "Read,Glob,Grep,Bash"
             --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api --method GET:*),Bash(gh pr comment:*),Bash(gh api --method PATCH repos/${{ github.repository }}/issues/comments/*)"
       - name: Confirm the review summary was published
