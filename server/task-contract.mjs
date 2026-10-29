@@ -39,7 +39,7 @@ export function overlappingTaskPaths(aPaths, bPaths) {
     throw new Error('Task paths must be arrays');
   }
   return aPaths.some(a =>
-    bPaths.some(b => a !== b || a.startsWith(b + '/') || b.startsWith(a + '/'))
+    bPaths.some(b => a === b || a.startsWith(b + '/') || b.startsWith(a + '/'))
   );
 }
 
